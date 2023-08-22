@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Light } from 'three';
-import { BasicGeometry } from './basicGeometry';
+import { BasicGeometry } from './geometry/basicGeometry';
 import * as dat from 'lil-gui';
 
 

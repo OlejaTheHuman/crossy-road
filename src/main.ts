@@ -3,7 +3,7 @@ import { Scene } from './scene';
 // import { BasicGeometry } from "./basicGeometry";
 // import { AmbientLight, DirectionalLight, PointLight } from "three";
 import './style.css';
-import { GroundLine } from './groundLine';
+import { GroundLine } from './geometry/groundLine';
 import KeyboardControls from './controls/keyControls';
 
 const root = document.getElementById('app');
