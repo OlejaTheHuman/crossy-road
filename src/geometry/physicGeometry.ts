@@ -19,7 +19,7 @@ export interface AnimatableI {
 
 export default class PhysicGeometry extends BasicGeometry implements AnimatableI {
     private _velocity: VelocityI = {x: 0, y: 0, z: 0};
-    private _acceleration: AccelerationI = {x: 0, y: 0, z: -0.05};
+    private _acceleration: AccelerationI = {x: 0, y: 0, z: 0};
 
     constructor(
         geometry: BufferGeometry,

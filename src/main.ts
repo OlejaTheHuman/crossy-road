@@ -3,9 +3,9 @@ import {Scene} from './scene';
 // import { BasicGeometry } from "./basicGeometry";
 // import { AmbientLight, DirectionalLight, PointLight } from "three";
 import './style.css';
-import {GroundLine} from './geometry/groundLine';
+import {GroundLine} from './gameObjects/groundLine.ts';
 import KeyboardControls from './controls/keyboardControls';
-import Character from './geometry/character';
+import Character from './gameObjects/character.ts';
 
 const root = document.getElementById('app');
 const scene = new Scene(root!);
@@ -29,8 +29,13 @@ scene.addObject(character);
 
 scene.initScene();
 
-const keyboardControls = new KeyboardControls('keypress');
-keyboardControls.addEventHandler({ key: 'w', handler: () => character.goForward() });
-keyboardControls.addEventHandler({ key: 's', handler: () => character.goBack() });
-keyboardControls.addEventHandler({ key: 'a', handler: () => character.goLeft() });
-keyboardControls.addEventHandler({ key: 'd', handler: () => character.goRight() });
+const keyupControls = new KeyboardControls('keyup');
+const keydownControls = new KeyboardControls('keydown');
+keyupControls.addEventHandler({ key: 'w', handler: () => character.goForward() });
+keyupControls.addEventHandler({ key: 's', handler: () => character.goBack() });
+keyupControls.addEventHandler({ key: 'a', handler: () => character.goLeft() });
+keyupControls.addEventHandler({ key: 'd', handler: () => character.goRight() });
+keydownControls.addEventHandler({key:'w', handler: () => character.squeeze()});
+keydownControls.addEventHandler({key:'s', handler: () => character.squeeze()});
+keydownControls.addEventHandler({key:'a', handler: () => character.squeeze()});
+keydownControls.addEventHandler({key:'d', handler: () => character.squeeze()});

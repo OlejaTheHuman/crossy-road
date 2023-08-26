@@ -5,7 +5,7 @@ export interface HandlerI {
 export default abstract class Controls<T extends HandlerI> {
     protected _eventHandlers: T[] = [];
     private _callFunction!: (event: WindowEventMap[keyof WindowEventMap]) => void;
-    private _eventType: keyof WindowEventMap;
+    protected _eventType: keyof WindowEventMap;
 
     constructor(
         type: keyof WindowEventMap,
