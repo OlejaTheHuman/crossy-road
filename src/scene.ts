@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import { Light } from 'three';
-import { BasicGeometry } from './geometry/basicGeometry';
+import {Light} from 'three';
+import {BasicGeometry} from './geometry/basicGeometry';
 import * as dat from 'lil-gui';
+import {AnimatableI} from './geometry/physicGeometry.ts';
 
+const isAnimatable = (obj: unknown): obj is AnimatableI => (obj as AnimatableI)?.animate !== undefined;
 
 export class Scene {
     private _target: HTMLElement;
@@ -15,11 +17,15 @@ export class Scene {
         target: HTMLElement,
         private scene = new THREE.Scene(),
         private camera = new THREE.OrthographicCamera(-1 * window.innerWidth / window.innerHeight, window.innerWidth / window.innerHeight, 1, -1, -1000, 1000),
-        private renderer = new THREE.WebGLRenderer({alpha: true}),
+        private renderer = new THREE.WebGLRenderer({
+            alpha: true,
+            antialias: true,
+        }),
     ) {
         this._target = target;
         this._width = this._target.offsetWidth;
         this._height = this._target.offsetHeight;
+        this.renderer.setPixelRatio(2);
     }
 
     public initScene() {
@@ -51,10 +57,10 @@ export class Scene {
     private animate(): void {
         requestAnimationFrame(() => this.animate());
         this.camera.updateProjectionMatrix();
-        //
-        // for(const mesh of this._objects){
-        //     mesh?.animate();
-        // }
+
+        for (const mesh of this._objects) {
+            if (isAnimatable(mesh)) mesh?.animate?.();
+        }
 
         this.renderer.render(this.scene, this.camera);
     }

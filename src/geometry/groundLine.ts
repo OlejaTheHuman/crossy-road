@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { BasicGeometry } from './basicGeometry';
-import { Material } from 'three';
+import {Material} from 'three';
+import {BasicGeometry} from './basicGeometry';
 
 export class GroundLine extends BasicGeometry {
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BufferGeometry, Material, Mesh } from 'three';
+import {BufferGeometry, Material, Mesh} from 'three';
 
 export abstract class BasicGeometry {
     private readonly _geometry: BufferGeometry;

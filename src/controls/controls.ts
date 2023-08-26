@@ -1,8 +1,8 @@
-export interface HandlerT {
+export interface HandlerI {
     handler: () => void
 }
 
-export default abstract class Controls<T extends HandlerT> {
+export default abstract class Controls<T extends HandlerI> {
     protected _eventHandlers: T[] = [];
     private _callFunction!: (event: WindowEventMap[keyof WindowEventMap]) => void;
     private _eventType: keyof WindowEventMap;
@@ -29,11 +29,11 @@ export default abstract class Controls<T extends HandlerT> {
         this.updateCallFunction();
     }
 
-    public removeEventHandler(handler: HandlerT): void {
-        this._eventHandlers.filter(_handler => _handler.handler === handler.handler);
+    public removeEventHandler(handler: HandlerI): void {
+        this._eventHandlers = this._eventHandlers.filter(_handler => _handler.handler === handler.handler);
     }
 
-    protected abstract callEventHandlerCondition(event: WindowEventMap[keyof WindowEventMap], handlerRecord: HandlerT): boolean;
+    protected abstract callEventHandlerCondition(event: WindowEventMap[keyof WindowEventMap], handlerRecord: T): boolean;
 
     protected setCallFunction(): void {
         this._callFunction = this.callEventHandlers.bind(this);
