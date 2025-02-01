@@ -1,5 +1,6 @@
 import {BasicGeometry} from './basicGeometry.ts';
-import {BufferGeometry, Material} from 'three';
+import {BufferGeometry, Material, Object3D} from 'three';
+import * as THREE from 'three';
 
 export interface VelocityI {
     x: number;
@@ -20,6 +21,7 @@ export interface AnimatableI {
 export default class PhysicGeometry extends BasicGeometry implements AnimatableI {
     private _velocity: VelocityI = {x: 0, y: 0, z: 0};
     private _acceleration: AccelerationI = {x: 0, y: 0, z: 0};
+    private _rayCaster = new THREE.Raycaster();
 
     constructor(
         geometry: BufferGeometry,
@@ -35,6 +37,11 @@ export default class PhysicGeometry extends BasicGeometry implements AnimatableI
         this.mesh.position.x += this.velocityX;
         this.mesh.position.y += this.velocityY;
         this.mesh.position.z += this.velocityZ;
+    }
+
+
+    public intersectObjects(objects: Object3D[]): void {
+        this._rayCaster.intersectObjects(objects);
     }
 
     public setVelocity(velocity: VelocityI): void {

@@ -1,15 +1,15 @@
 import Controls, {HandlerI} from './controls';
 
-export interface KeyHadlerI extends HandlerI {
+export interface KeyHandlerI extends HandlerI {
     key: string;
 }
 
-export default class KeyboardControls extends Controls<KeyHadlerI> {
+export default class KeyboardControls extends Controls<KeyHandlerI> {
     constructor(eventType: keyof WindowEventMap) {
         super(eventType);
     }
 
-    protected callEventHandlerCondition(event: KeyboardEvent, handlerRecord: KeyHadlerI): boolean {
+    protected callEventHandlerCondition(event: KeyboardEvent, handlerRecord: KeyHandlerI): boolean {
         return event.key === handlerRecord.key;
     }
 }

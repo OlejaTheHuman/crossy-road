@@ -1,0 +1,623 @@
+// File: /Users/admin/WebstormProjects/crossyRoad/src/main.ts
+import { Game } from './game/game';
+import './style.css';
+
+const root = document.getElementById('app');
+if (!root) throw new Error('No #app element found');
+
+const game = new Game(root);
+game.start();
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/scene.ts
+import * as THREE from 'three';
+import {Light} from 'three';
+import {BasicGeometry} from './geometry/basicGeometry';
+import * as dat from 'lil-gui';
+import {AnimatableI} from './geometry/physicGeometry.ts';
+
+export const isAnimatable = (obj: unknown): obj is AnimatableI => (obj as AnimatableI)?.animate !== undefined;
+
+export class Scene {
+    private _target: HTMLElement;
+    private _objects: BasicGeometry[] = [];
+    private _lights: Light[] = [];
+    private readonly _width: number;
+    private readonly _height: number;
+
+    constructor(
+        target: HTMLElement,
+        private scene = new THREE.Scene(),
+        private camera = new THREE.OrthographicCamera(-1 * window.innerWidth / window.innerHeight, window.innerWidth / window.innerHeight, 1, -1, -1000, 1000),
+        private renderer = new THREE.WebGLRenderer({
+            alpha: true,
+            antialias: true,
+        }),
+    ) {
+        this._target = target;
+        this._width = this._target.offsetWidth;
+        this._height = this._target.offsetHeight;
+        this.renderer.setPixelRatio(2);
+    }
+
+    public initScene() {
+        this.configureCamera();
+
+        this.renderer.setSize(this._width, this._height);
+        this._target?.appendChild(this.renderer.domElement);
+        window.addEventListener('resize', () => this.handleResize());
+
+        for (const mesh of this._objects) {
+            this.scene.add(mesh.mesh);
+        }
+
+        for (const light of this._lights) {
+            this.scene.add(light);
+        }
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    public addObject(object: BasicGeometry): void {
+        this._objects.push(object);
+    }
+
+    public addLight(light: Light): void {
+        this._lights.push(light);
+    }
+
+    public getObjects(): BasicGeometry[] {
+        return this._objects;
+    }
+
+    public renderFrame(): void {
+        this.camera.updateProjectionMatrix();
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    private handleResize() {
+        const width = this._target.offsetWidth;
+        const height = this._target.offsetHeight;
+
+        this.renderer.setSize(width, height);
+        //TODO доделать, чтобы сцена не искажалась
+    }
+
+    private configureCamera(): void {
+        this.camera.rotation.x = 0.714;
+        this.camera.rotation.y = 0.19;
+        this.camera.rotation.z = 0.19;
+        this.camera.zoom = 0.15;
+        this.camera.position.y = 10;
+        this.camera.position.z = 0;
+        this.camera.position.x = 0;
+
+        const gui = new dat.GUI();
+        gui.add(this.camera.rotation, 'x', -3, 3, 0.001);
+        gui.add(this.camera.rotation, 'y', -3, 3, 0.001);
+        gui.add(this.camera.rotation, 'z', -3, 3, 0.001);
+        gui.add(this.camera.position, 'x', -15, 15, 1);
+        gui.add(this.camera.position, 'y', 0, 100, 1);
+        gui.add(this.camera.position, 'z', -15, 15, 1);
+        gui.add(this.camera, 'zoom', 0, 1, 0.001);
+    }
+}
+
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/vite-env.d.ts
+/// <reference types="vite/client" />
+
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/style.css
+* {
+  box-sizing: border-box;
+}
+
+html,
+body{
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  height: 100vh;
+  width: 100%;
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/config.ts
+export default class Config {
+    public static readonly G_ACCELERATION = -0.2;
+    public static readonly CHARACTER_Y_VELOCITY = 0.1;
+    public static readonly CHARACTER_X_VELOCITY = 0.1;
+    public static readonly CHARACTER_Z_VELOCITY = 1;
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/collisions/collisions.ts
+import * as THREE from 'three';
+import { BasicGeometry } from '../geometry/basicGeometry.ts';
+
+export class Collision {
+    private _objects: BasicGeometry[] = [];
+
+    /**
+     * Добавить объект в систему для отслеживания коллизий
+     */
+    public addObject(object: BasicGeometry): void {
+        this._objects.push(object);
+    }
+
+    /**
+     * Удалить объект из системы коллизий
+     */
+    public removeObject(object: BasicGeometry): void {
+        this._objects = this._objects.filter(obj => obj !== object);
+    }
+
+    /**
+     * Проверить, с какими объектами сталкивается переданный объект.
+     * Возвращает массив всех объектов, у которых произошла коллизия.
+     */
+    public checkCollisions(object: BasicGeometry): BasicGeometry[] {
+        const colliding: BasicGeometry[] = [];
+
+        // Берём AABB для текущего объекта
+        // (Box3 автоматически вычисляет габариты меша)
+        const box1 = new THREE.Box3().setFromObject(object.mesh);
+
+        for (const obj of this._objects) {
+            // Чтобы не проверять объект сам с собой
+            if (obj === object) continue;
+
+            // AABB для другого объекта
+            const box2 = new THREE.Box3().setFromObject(obj.mesh);
+
+            // Если пересекаются — коллизия
+            if (box1.intersectsBox(box2)) {
+                colliding.push(obj);
+            }
+        }
+
+        return colliding;
+    }
+
+    /**
+     * Вспомогательный метод: проверить все объекты между собой.
+     * Возвращает список пар (A, B), у которых есть пересечение.
+     */
+    public checkAllCollisions(): Array<[BasicGeometry, BasicGeometry]> {
+        const collisions: Array<[BasicGeometry, BasicGeometry]> = [];
+
+        for (let i = 0; i < this._objects.length; i++) {
+            const objA = this._objects[i];
+            const boxA = new THREE.Box3().setFromObject(objA.mesh);
+
+            for (let j = i + 1; j < this._objects.length; j++) {
+                const objB = this._objects[j];
+                // Чтобы не проверять A->B и B->A дважды
+                const boxB = new THREE.Box3().setFromObject(objB.mesh);
+
+                if (boxA.intersectsBox(boxB)) {
+                    collisions.push([objA, objB]);
+                }
+            }
+        }
+
+        return collisions;
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/game/game.ts
+import * as THREE from 'three';
+import Character from '../gameObjects/character.ts';
+import {Collision} from '../collisions/collisions.ts';
+import {GroundLine} from '../gameObjects/groundLine.ts';
+import KeyboardControls from '../controls/keyboardControls.ts';
+import {isAnimatable, Scene} from '../scene.ts';
+import {Ground} from '../gameObjects/Ground.ts';
+
+export class Game {
+    private _scene: Scene;
+    private _collision: Collision;
+    private _isRunning = false;
+    private readonly _character: Character;
+
+    constructor(container: HTMLElement) {
+        this._scene = new Scene(container);
+        this._collision = new Collision();
+
+        this._character = new Character();
+        this._character.position(1, 1, 1);
+        const ground = new Ground(200, 200, 1);
+
+        this._scene.addObject(this._character);
+        this._scene.addObject(ground);
+        this._collision.addObject(this._character);
+        this._collision.addObject(ground);
+
+        this.createGround(100);
+        this.addLights();
+
+        this._scene.initScene();
+        this.initControls();
+    }
+
+    public start() {
+        this._isRunning = true;
+        this.loop();
+    }
+
+    public stop() {
+        this._isRunning = false;
+    }
+
+    private loop() {
+        if (!this._isRunning) return;
+
+        this.checkCollisions();
+
+        for (const obj of this._scene.getObjects()) {
+            if (isAnimatable(obj)) obj.animate();
+        }
+
+        this._scene.renderFrame();
+
+        requestAnimationFrame(() => this.loop());
+    }
+
+    private createGround(count: number) {
+        for (let i = 0; i < count; i++) {
+            const color = (i % 2 === 0) ? '#67ec91' : '#4bc975';
+            const line = new GroundLine(new THREE.MeshStandardMaterial({ color }));
+            line.position(0, i, 0);
+
+            this._scene.addObject(line);
+        }
+    }
+
+
+    private addLights() {
+        const ambientLight = new THREE.AmbientLight(0x404040, 30);
+        this._scene.addLight(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0x404040, 10);
+        directionalLight.position.set(1, 1, 2);
+        this._scene.addLight(directionalLight);
+    }
+
+    private initControls() {
+        const keyupControls = new KeyboardControls('keyup');
+        const keydownControls = new KeyboardControls('keydown');
+
+        keyupControls.addEventHandler({ key: 'w', handler: () => this._character.goForward() });
+        keyupControls.addEventHandler({ key: 's', handler: () => this._character.goBack() });
+        keyupControls.addEventHandler({ key: 'a', handler: () => this._character.goLeft() });
+        keyupControls.addEventHandler({ key: 'd', handler: () => this._character.goRight() });
+
+        keydownControls.addEventHandler({ key: 'w', handler: () => this._character.squeeze() });
+        keydownControls.addEventHandler({ key: 's', handler: () => this._character.squeeze() });
+        keydownControls.addEventHandler({ key: 'a', handler: () => this._character.squeeze() });
+        keydownControls.addEventHandler({ key: 'd', handler: () => this._character.squeeze() });
+    }
+
+    public checkCollisions() {
+        const collided = this._collision.checkCollisions(this._character);
+
+        for (const obj of collided) {
+            if (obj instanceof Ground) {
+                this._character.fixCharacterOnGround();
+            }
+        }
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/controls/keyboardControls.ts
+import Controls, {HandlerI} from './controls';
+
+export interface KeyHandlerI extends HandlerI {
+    key: string;
+}
+
+export default class KeyboardControls extends Controls<KeyHandlerI> {
+    constructor(eventType: keyof WindowEventMap) {
+        super(eventType);
+    }
+
+    protected callEventHandlerCondition(event: KeyboardEvent, handlerRecord: KeyHandlerI): boolean {
+        return event.key === handlerRecord.key;
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/controls/controls.ts
+export interface HandlerI {
+    handler: () => void
+}
+
+export default abstract class Controls<T extends HandlerI> {
+    protected _eventHandlers: T[] = [];
+    private _callFunction!: (event: WindowEventMap[keyof WindowEventMap]) => void;
+    protected _eventType: keyof WindowEventMap;
+
+    constructor(
+        type: keyof WindowEventMap,
+    ) {
+        this._eventType = type;
+        this.setCallFunction();
+    }
+
+    public addEventHandler(handler: T): void {
+        this._eventHandlers.push(handler);
+        this.updateCallFunction();
+    }
+
+    public addEventHandlers(handlers: T[]): void {
+        this._eventHandlers = handlers;
+        this.updateCallFunction();
+    }
+
+    public clearEventHandlers(): void {
+        this._eventHandlers = [];
+        this.updateCallFunction();
+    }
+
+    public removeEventHandler(handler: HandlerI): void {
+        this._eventHandlers = this._eventHandlers.filter(_handler => _handler.handler === handler.handler);
+    }
+
+    protected abstract callEventHandlerCondition(event: WindowEventMap[keyof WindowEventMap], handlerRecord: T): boolean;
+
+    protected setCallFunction(): void {
+        this._callFunction = this.callEventHandlers.bind(this);
+        window.addEventListener(this._eventType, this._callFunction);
+    }
+
+    private callEventHandlers(event: WindowEventMap[keyof WindowEventMap]): void {
+        for (const handlerRecord of this._eventHandlers) {
+            if (this.callEventHandlerCondition(event, handlerRecord)) handlerRecord.handler();
+        }
+    }
+
+    private removeCallFunction(): void {
+        window.removeEventListener(this._eventType, this._callFunction);
+    }
+
+    private updateCallFunction(): void {
+        this.removeCallFunction();
+        this.setCallFunction();
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/gameObjects/Ground.ts
+import * as THREE from 'three';
+import {BasicGeometry} from '../geometry/basicGeometry';
+
+export class Ground extends BasicGeometry {
+    constructor(width = 20, depth = 20, thickness = 1) {
+        super(
+            new THREE.BoxGeometry(width, depth, thickness),
+            new THREE.MeshStandardMaterial({opacity: 0, transparent: true}), // любой цвет
+        );
+
+        this.mesh.position.y = -thickness / 2;
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/gameObjects/groundLine.ts
+import * as THREE from 'three';
+import {Material} from 'three';
+import {BasicGeometry} from '../geometry/basicGeometry.ts';
+
+export class GroundLine extends BasicGeometry {
+
+    constructor(material: Material) {
+        super(new THREE.BoxGeometry(20, 1, 1), material);
+    }
+}
+
+
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/gameObjects/character.ts
+import * as THREE from 'three';
+import PhysicGeometry from '../geometry/physicGeometry.ts';
+import Config from '../config.ts';
+
+export default class Character extends PhysicGeometry {
+    private _isAnimationGoing = false;
+    private _isSqueezing = false;
+
+    constructor() {
+        super(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({color: '#6273bf'}));
+        this.setAcceleration({x: 0, y: 0, z: Config.G_ACCELERATION});
+    }
+
+    public animate(): void {
+        this._squeeze();
+        if (this._isAnimationGoing) super.animate();
+    }
+
+    public fixCharacterOnGround(groundZ = 1): void {
+            this.setVelocity({x: 0, y: 0, z: 0});
+            this.mesh.position.z = groundZ;
+            this._isAnimationGoing = false;
+    }
+
+    public goForward(): void {
+        if (this._isAnimationGoing) return;
+        this._isAnimationGoing = true;
+        this._isSqueezing = false;
+        this.velocityZ += Config.CHARACTER_Z_VELOCITY;
+        this.velocityY += Config.CHARACTER_Y_VELOCITY;
+    }
+
+    public goBack(): void {
+        if (this._isAnimationGoing) return;
+        this._isAnimationGoing = true;
+        this._isSqueezing = false;
+        this.velocityZ += Config.CHARACTER_Z_VELOCITY;
+        this.velocityY -= Config.CHARACTER_Y_VELOCITY;
+    }
+
+    public goLeft(): void {
+        if (this._isAnimationGoing) return;
+        this._isAnimationGoing = true;
+        this._isSqueezing = false;
+        this.velocityZ += Config.CHARACTER_Z_VELOCITY;
+        this.velocityX -= Config.CHARACTER_X_VELOCITY;
+    }
+
+    public goRight(): void {
+        if (this._isAnimationGoing) return;
+        this._isAnimationGoing = true;
+        this._isSqueezing = false;
+        this.velocityZ += Config.CHARACTER_Z_VELOCITY;
+        this.velocityX += Config.CHARACTER_X_VELOCITY;
+    }
+
+    public squeeze(): void {
+        this._isSqueezing = true;
+    }
+
+    private _squeeze(): void {
+        if (!this._isSqueezing) {
+            this.mesh.scale.z = 1;
+            return;
+        }
+
+        if (this.mesh.scale.z > 1 || this.mesh.scale.z < 0.5) {
+            // Если вышли за диапазон
+            return;
+        }
+
+        const scaleFactor = Config.G_ACCELERATION * this.mesh.scale.z ** 2 * 0.2;
+        this.mesh.scale.z += scaleFactor;
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/geometry/basicGeometry.ts
+import * as THREE from 'three';
+import {BufferGeometry, Material, Mesh} from 'three';
+
+export abstract class BasicGeometry {
+    private readonly _geometry: BufferGeometry;
+    private readonly _material: Material;
+    protected _mesh: Mesh;
+
+    protected constructor(geometry: BufferGeometry, material: Material) {
+        this._geometry = geometry;
+        this._material = material;
+        this._mesh = new THREE.Mesh(this._geometry, this._material);
+    }
+
+    public get mesh(): Mesh {
+        return this._mesh;
+    }
+
+    public position(x: number, y: number, z: number): void {
+        this._mesh.position.set(x, y, z);
+    }
+}
+
+// File: /Users/admin/WebstormProjects/crossyRoad/src/geometry/physicGeometry.ts
+import {BasicGeometry} from './basicGeometry.ts';
+import {BufferGeometry, Material, Object3D} from 'three';
+import * as THREE from 'three';
+
+export interface VelocityI {
+    x: number;
+    y: number;
+    z: number;
+}
+
+export interface AccelerationI {
+    x: number;
+    y: number;
+    z: number;
+}
+
+export interface AnimatableI {
+    animate: () => void;
+}
+
+export default class PhysicGeometry extends BasicGeometry implements AnimatableI {
+    private _velocity: VelocityI = {x: 0, y: 0, z: 0};
+    private _acceleration: AccelerationI = {x: 0, y: 0, z: 0};
+    private _rayCaster = new THREE.Raycaster();
+
+    constructor(
+        geometry: BufferGeometry,
+        material: Material,
+    ) {
+        super(geometry, material);
+    }
+
+    public animate(): void {
+        this.velocityX += this.accelerationX;
+        this.velocityY += this.accelerationY;
+        this.velocityZ += this.accelerationZ;
+        this.mesh.position.x += this.velocityX;
+        this.mesh.position.y += this.velocityY;
+        this.mesh.position.z += this.velocityZ;
+    }
+
+
+    public intersectObjects(objects: Object3D[]): void {
+        this._rayCaster.intersectObjects(objects);
+    }
+
+    public setVelocity(velocity: VelocityI): void {
+        this._velocity = velocity;
+    }
+
+    public setAcceleration(acceleration: AccelerationI): void {
+        this._acceleration = acceleration;
+    }
+
+    get velocityX(): number {
+        return this._velocity.x;
+    }
+
+    set velocityX(value: number) {
+        this._velocity.x = value;
+    }
+
+    get velocityY(): number {
+        return this._velocity.y;
+    }
+
+    set velocityY(value: number) {
+        this._velocity.y = value;
+    }
+
+    get velocityZ(): number {
+        return this._velocity.z;
+    }
+
+    set velocityZ(value: number) {
+        this._velocity.z = value;
+    }
+
+    get accelerationX(): number {
+        return this._acceleration.x;
+    }
+
+    set accelerationX(value: number) {
+        this._acceleration.x = value;
+    }
+
+    get accelerationY(): number {
+        return this._acceleration.y;
+    }
+
+    set accelerationY(value: number) {
+        this._acceleration.y = value;
+    }
+
+    get accelerationZ(): number {
+        return this._acceleration.z;
+    }
+
+    set accelerationZ(value: number) {
+        this._acceleration.z = value;
+    }
+}
+

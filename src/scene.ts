@@ -4,14 +4,14 @@ import {BasicGeometry} from './geometry/basicGeometry';
 import * as dat from 'lil-gui';
 import {AnimatableI} from './geometry/physicGeometry.ts';
 
-const isAnimatable = (obj: unknown): obj is AnimatableI => (obj as AnimatableI)?.animate !== undefined;
+export const isAnimatable = (obj: unknown): obj is AnimatableI => (obj as AnimatableI)?.animate !== undefined;
 
 export class Scene {
     private _target: HTMLElement;
-    private readonly _width: number;
-    private readonly _height: number;
     private _objects: BasicGeometry[] = [];
     private _lights: Light[] = [];
+    private readonly _width: number;
+    private readonly _height: number;
 
     constructor(
         target: HTMLElement,
@@ -33,6 +33,7 @@ export class Scene {
 
         this.renderer.setSize(this._width, this._height);
         this._target?.appendChild(this.renderer.domElement);
+        window.addEventListener('resize', () => this.handleResize());
 
         for (const mesh of this._objects) {
             this.scene.add(mesh.mesh);
@@ -43,26 +44,31 @@ export class Scene {
         }
 
         this.renderer.render(this.scene, this.camera);
-        this.animate();
     }
 
-    public addObject(geometry: BasicGeometry): void {
-        this._objects.push(geometry);
+    public addObject(object: BasicGeometry): void {
+        this._objects.push(object);
     }
 
     public addLight(light: Light): void {
         this._lights.push(light);
     }
 
-    private animate(): void {
-        requestAnimationFrame(() => this.animate());
+    public getObjects(): BasicGeometry[] {
+        return this._objects;
+    }
+
+    public renderFrame(): void {
         this.camera.updateProjectionMatrix();
-
-        for (const mesh of this._objects) {
-            if (isAnimatable(mesh)) mesh?.animate?.();
-        }
-
         this.renderer.render(this.scene, this.camera);
+    }
+
+    private handleResize() {
+        const width = this._target.offsetWidth;
+        const height = this._target.offsetHeight;
+
+        this.renderer.setSize(width, height);
+        //TODO доделать, чтобы сцена не искажалась
     }
 
     private configureCamera(): void {
