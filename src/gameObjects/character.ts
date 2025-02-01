@@ -58,6 +58,7 @@ export default class Character extends PhysicGeometry {
         this._isSqueezing = true;
     }
 
+    //TODO Доделать так, чтобы персонаж сжимался не к центру, а к земле
     private _squeeze(): void {
         if (!this._isSqueezing) {
             this.mesh.scale.z = 1;
